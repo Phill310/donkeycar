@@ -444,40 +444,75 @@ def drive(cfg, use_joystick=False, camera_type='single'):
 
 def add_gps(V, cfg):
     if cfg.HAVE_GPS:
-        from donkeycar.parts.serial_port import SerialPort, SerialLineReader
-        from donkeycar.parts.gps import GpsNmeaPositions, GpsLatestPosition, GpsPlayer
-        from donkeycar.parts.pipe import Pipe
-        from donkeycar.parts.text_writer import CsvLogger
+        if cfg.USE_FUSION:
+            from donkeycar.parts.serial_port import SerialPort, SerialLineReader
+            from donkeycar.parts.gps import GpsNmeaPositions, GpsLatestPosition
+            from donkeycar.parts.gps_imu_fusion import EKFFusion
 
-        #
-        # parts to
-        # - read nmea lines from serial port
-        # - OR play from recorded file
-        # - convert nmea lines to positions
-        # - retrieve the most recent position
-        #
-        serial_port = SerialPort(cfg.GPS_SERIAL, cfg.GPS_SERIAL_BAUDRATE)
-        nmea_reader = SerialLineReader(serial_port)
-        V.add(nmea_reader, outputs=['gps/nmea'], threaded=True)
+            # Setup GPS parts
+            serial_port = SerialPort(cfg.GPS_SERIAL, cfg.GPS_SERIAL_BAUDRATE)
+            nmea_reader = SerialLineReader(serial_port)
+            V.add(nmea_reader, outputs=['gps/nmea'], threaded=True)
 
-        # part to save nmea sentences for later playback
-        nmea_player = None
-        if cfg.GPS_NMEA_PATH:
-            nmea_writer = CsvLogger(cfg.GPS_NMEA_PATH, separator='\t', field_count=2)
-            V.add(nmea_writer, inputs=['recording', 'gps/nmea'], outputs=['gps/recorded/nmea'])  # only record nmea sentences in user mode
-            nmea_player = GpsPlayer(nmea_writer)
-            V.add(nmea_player, inputs=['run_pilot', 'gps/nmea'], outputs=['gps/playing', 'gps/nmea'])  # only play nmea sentences in autopilot mode
+            gps_positions = GpsNmeaPositions(debug=cfg.GPS_DEBUG)
+            V.add(gps_positions, inputs=['gps/nmea'], outputs=['gps/positions'])
 
-        gps_positions = GpsNmeaPositions(debug=cfg.GPS_DEBUG)
-        V.add(gps_positions, inputs=['gps/nmea'], outputs=['gps/positions'])
-        gps_latest_position = GpsLatestPosition(debug=cfg.GPS_DEBUG)
-        V.add(gps_latest_position, inputs=['gps/positions'], outputs=['gps/timestamp', 'gps/utm/longitude', 'gps/utm/latitude'])
+            gps_latest_position = GpsLatestPosition(debug=cfg.GPS_DEBUG)
+            V.add(gps_latest_position, inputs=['gps/positions'], outputs=['gps/timestamp', 'gps/utm/x', 'gps/utm/y'])
 
-        # rename gps utm position to pose values
-        V.add(Pipe(), inputs=['gps/utm/longitude', 'gps/utm/latitude'], outputs=['pos/x', 'pos/y'])
+            # Add Fusion
+            fusion = EKFFusion(debug=cfg.FUSION_DEBUG)
 
-        return nmea_player
+            V.add(fusion,
+                  inputs=[
+                      'gps/utm/x', 'gps/utm/y',  # From GPS
+                      'imu/acl_x', 'imu/acl_y', 'imu/acl_z',  # From IMU
+                      'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z',  # From IMU
+                      'imu/quat_i', 'imu/quat_j', 'imu/quat_k', 'imu/quat_real'  # From IMU
+                  ],
+                  outputs=['pos/x', 'pos/y', 'pos/yaw'],
+                  threaded=False)
 
+            return None
+        else:
+
+            from donkeycar.parts.serial_port import SerialPort, SerialLineReader
+            from donkeycar.parts.gps import GpsNmeaPositions, GpsLatestPosition, GpsPlayer
+            from donkeycar.parts.pipe import Pipe
+            from donkeycar.parts.text_writer import CsvLogger
+
+            #
+            # parts to
+            # - read nmea lines from serial port
+            # - OR play from recorded file
+            # - convert nmea lines to positions
+            # - retrieve the most recent position
+            #
+            serial_port = SerialPort(cfg.GPS_SERIAL, cfg.GPS_SERIAL_BAUDRATE)
+            nmea_reader = SerialLineReader(serial_port)
+            V.add(nmea_reader, outputs=['gps/nmea'], threaded=True)
+
+            # part to save nmea sentences for later playback
+            nmea_player = None
+            if cfg.GPS_NMEA_PATH:
+                nmea_writer = CsvLogger(cfg.GPS_NMEA_PATH, separator='\t', field_count=2)
+                V.add(nmea_writer, inputs=['recording', 'gps/nmea'],
+                      outputs=['gps/recorded/nmea'])  # only record nmea sentences in user mode
+                nmea_player = GpsPlayer(nmea_writer)
+                V.add(nmea_player, inputs=['run_pilot', 'gps/nmea'],
+                      outputs=['gps/playing', 'gps/nmea'])  # only play nmea sentences in autopilot mode
+
+            gps_positions = GpsNmeaPositions(debug=cfg.GPS_DEBUG)
+            V.add(gps_positions, inputs=['gps/nmea'], outputs=['gps/positions'])
+            gps_latest_position = GpsLatestPosition(debug=cfg.GPS_DEBUG)
+            V.add(gps_latest_position, inputs=['gps/positions'],
+                  outputs=['gps/timestamp', 'gps/utm/longitude', 'gps/utm/latitude'])
+
+            # rename gps utm position to pose values
+            V.add(Pipe(), inputs=['gps/utm/longitude', 'gps/utm/latitude'], outputs=['pos/x', 'pos/y'])
+
+            return nmea_player
+    return None
 
 if __name__ == '__main__':
     args = docopt(__doc__)
