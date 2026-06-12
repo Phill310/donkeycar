@@ -477,24 +477,26 @@ def add_gps(V, cfg):
                   outputs=['gps/timestamp', 'gps/utm/longitude', 'gps/utm/latitude'])
 
         if cfg.USE_FUSION:
-            from donkeycar.parts.gps_imu_fusion import EKFFusion
-            fusion = EKFFusion(debug=cfg.FUSION_DEBUG)
+            if cfg.HAVE_IMU:
+                from donkeycar.parts.gps_imu_fusion import EKFFusion
+                fusion = EKFFusion(debug=cfg.FUSION_DEBUG)
 
-            V.add(fusion,
-                  inputs=[
-                      'gps/utm/longitude', 'gps/utm/latitude',  # From GPS
-                      'imu/acl_x', 'imu/acl_y', 'imu/acl_z',  # From IMU
-                      'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z',  # From IMU
-                      'imu/quat_i', 'imu/quat_j', 'imu/quat_k', 'imu/quat_real'  # From IMU
-                  ],
-                  outputs=['pos/x', 'pos/y', 'pos/yaw'],
-                  threaded=False)
-            return None
+                V.add(fusion,
+                      inputs=[
+                          'gps/utm/longitude', 'gps/utm/latitude',  # From GPS
+                          'imu/acl_x', 'imu/acl_y', 'imu/acl_z',  # From IMU
+                          'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z',  # From IMU
+                          'imu/quat_i', 'imu/quat_j', 'imu/quat_k', 'imu/quat_real'  # From IMU
+                      ],
+                      outputs=['pos/x', 'pos/y', 'pos/yaw'],
+                      threaded=False)
+                return None
+            else:
+                logger.info("Fusion was not enabled because your IMU was disabled. Add 'HAVE_IMU = True' to your myconfig.py file to enable it.")
 
-        else:
-            # rename gps utm position to pose values
-            V.add(Pipe(), inputs=['gps/utm/longitude', 'gps/utm/latitude'], outputs=['pos/x', 'pos/y'])
-            return nmea_player
+        # rename gps utm position to pose values
+        V.add(Pipe(), inputs=['gps/utm/longitude', 'gps/utm/latitude'], outputs=['pos/x', 'pos/y'])
+        return nmea_player
 
     return None
 
