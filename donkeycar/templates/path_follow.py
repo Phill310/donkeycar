@@ -480,6 +480,12 @@ def add_gps(V, cfg):
             from donkeycar.parts.gps_imu_fusion import EKFFusion
             fusion = EKFFusion(debug=cfg.FUSION_DEBUG)
 
+            # Combine GPS values into a tuple for fusion
+            from donkeycar.parts.transform import Lambda
+            V.add(Lambda(lambda x, y: (x, y)), 
+                  inputs=['gps/utm/longitude', 'gps/utm/latitude'], 
+                  outputs=['gps/pos'])
+
             V.add(fusion,
                   inputs=[
                       'gps/utm/longitude', 'gps/utm/latitude',  # From GPS
