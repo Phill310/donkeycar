@@ -487,10 +487,7 @@ def add_gps(V, cfg):
                   outputs=['gps/pos'])
 
             V.add(fusion,
-                  inputs=[
-                      'gps/utm/longitude', 'gps/utm/latitude',  # From GPS
-                      'imu/accel', 'imu/gyro', 'imu/quat'
-                  ],
+                  inputs=['gps/pos', 'imu/accel', 'imu/gyro', 'imu/quat'],
                   outputs=['pos/x', 'pos/y', 'pos/yaw'],
                   threaded=False)
             return None
