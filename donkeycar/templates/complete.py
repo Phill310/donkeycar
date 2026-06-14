@@ -926,12 +926,9 @@ def add_imu(V, cfg):
         if cfg.IMU_SENSOR.lower() == "bno08x":
             from donkeycar.parts.imu import Bno08xIMU
             imu = Bno08xIMU(addr=cfg.IMU_ADDRESS)
-            V.add(imu,
-                  outputs=[
-                      'imu/acl_x', 'imu/acl_y', 'imu/acl_z',
-                      'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z',
-                      'imu/quat_i', 'imu/quat_j', 'imu/quat_k', 'imu/quat_real'
-                  ], threaded=True)
+            V.add(imu, 
+                outputs=['imu/accel', 'imu/gyro', 'imu/quat'], 
+                threaded=True)
         else:
             from donkeycar.parts.imu import IMU
             imu = IMU(sensor=cfg.IMU_SENSOR, addr=cfg.IMU_ADDRESS,

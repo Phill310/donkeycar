@@ -142,10 +142,19 @@ class Bno08xIMU:
         except Exception as e:
             print(f"Failed to read BNO08x: {e}")
 
+    # Instead of returning flat scalars:
+    # return self.accel['x'], self.accel['y'], self.accel['z'], self.gyro['x'] ...
+
     def run_threaded(self):
-        return (self.accel['x'], self.accel['y'], self.accel['z'],
-                self.gyro['x'], self.gyro['y'], self.gyro['z'],
-                self.quat['i'], self.quat['j'], self.quat['k'], self.quat['real'])
+        accel = (self.accel['x'], self.accel['y'], self.accel['z'])
+        gyro = (self.gyro['x'], self.gyro['y'], self.gyro['z'])
+        
+        # If using the BNO08x, include the quaternion tuple as well
+        if hasattr(self, 'quat'):
+            quat = (self.quat['i'], self.quat['j'], self.quat['k'], self.quat['real'])
+            return accel, gyro, quat
+            
+        return accel, gyro, self.temp
 
     def run(self):
         self.poll()
